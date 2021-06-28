@@ -90,11 +90,13 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		}
 		$htmla = array();
 		$html = '';
-		vmdebug('methods', $this->methods);
+		vmdebug('Payment methods', $this->methods);
 		VmConfig::loadJLang('com_virtuemart');
 		$currency = CurrencyDisplay::getInstance();
 		foreach ($this->methods as $method) {
+		    vmdebug('Check conditoins for method', $method->payment_element);
 			if ($this->checkConditions($cart, $method, $cart->cartPrices)) {
+			    vmdebug('Conditoins met for method', $method->payment_element);
 				$methodSalesPrice = $this->calculateSalesPrice($cart, $method, $cart->cartPrices);
 				//$method->payment_name = $method->payment_name
 				if (empty($method->ipg_merchant_id) or empty($method->ipg_password) or empty($method->acquirer_id)) {
@@ -118,6 +120,8 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 					'payment_cost' => $payment_cost				));
 
 				$htmla[] = $html;
+			} else {
+			    vmdebug('Conditoins not met for method', $method->payment_element);
 			}
 		}
 		if (!empty($htmla)) {
@@ -132,10 +136,9 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 	 *
 	 * @author Valerie Cartan Isaksen
 	 */
-	function plgVmOnCheckoutCheckDataPayment(VirtueMartCart $cart) {
+	/*function plgVmOnCheckoutCheckDataPayment(VirtueMartCart $cart) {
 		return null;
-	}
-
+	}*/
 
 	/**
 	 * @param $cart
@@ -154,7 +157,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		$session = JFactory::getSession();
 		$return_context = $session->getId();
 
-		$this->_debug = $method->debug;
+		//$this->_debug = $method->debug;
 		$this->logInfo('plgVmConfirmedOrder order number: ' . $order['details']['BT']->order_number, 'message');
 		vmdebug('HNB_IPG plgVmConfirmedOrder');
 		if (!class_exists('VirtueMartModelOrders')) {
@@ -203,15 +206,11 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		$dbValues['hnb_ipg_custom'] = $return_context;
 		$this->storePSPluginInternalData($dbValues);
 
-		//$mainframe = JFactory::getApplication();
-		//$mainframe->redirect($url);
-
 		// Send Data to IPG
 		$this->_submitToIPG($method, $dbValues, $cart, $order);
 	}
 
 	function displayErrors($errors) {
-
 		foreach ($errors as $error) {
 			// TODO
 			vmInfo(vmText::sprintf('VMPAYMENT_HNB_IPG_ERROR_FROM', $error ['message'], $error ['field'], $error ['code']));
@@ -287,6 +286,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		$dbValues['hnb_auth_code'] = $auth_code;
 		$dbValues['hnb_tx_stain'] = $tx_stain;
 
+        vmdebug('_getPaymentResponseHtml storePSPluginInternalData', $dbValues);
 		$this->storePSPluginInternalData($dbValues);
 
 		$cart = VirtueMartCart::getCart();
@@ -662,7 +662,6 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 	 *
 	 */
 	protected function checkConditions($cart, $method, $cart_prices) {
-
 		$this->convert_condition_amount($method);
 		$amount = $this->getCartAmount($cart_prices);
 		$address = (($cart->ST == 0) ? $cart->BT : $cart->ST);
@@ -708,7 +707,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 	 * This functions checks if the called plugin is active one.
 	 * When yes it is calling the standard method to create the tables
 	 *
-	 * @author Valérie Isaksen
+	 * @author Valï¿½rie Isaksen
 	 *
 	 */
 	function plgVmOnStoreInstallPaymentPluginTable($jplugin_id) {
@@ -720,7 +719,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 	 * This event is fired after the payment method has been selected. It can be used to store
 	 * additional payment info in the cart.
 	 *
-	 * @author Valérie isaksen
+	 * @author Valï¿½rie isaksen
 	 *
 	 * @param VirtueMartCart $cart : the actual cart
 	 * @return null if the payment was not selected, true if the data is valid, error message if the data is not vlaid
@@ -732,25 +731,16 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 	}
 
 	/*
-		 * plgVmonSelectedCalculatePricePayment
-		 * Calculate the price (value, tax_id) of the selected method
-		 * It is called by the calculator
-		 * This function does NOT to be reimplemented. If not reimplemented, then the default values from this function are taken.
-		 * @author Valerie Isaksen
-		 * @cart: VirtueMartCart the current cart
-		 * @cart_prices: array the new cart prices
-		 * @return null if the method was not selected, false if the payment is not valid any more, true otherwise
-		 *
-		 *
-		 */
-
-	/**
-	 * @param VirtueMartCart $cart
-	 * @param array $cart_prices
-	 * @param                $cart_prices_name
-	 * @return bool','null
+	 * plgVmonSelectedCalculatePricePayment
+	 * Calculate the price (value, tax_id) of the selected method
+	 * It is called by the calculator
+	 * This function does NOT to be reimplemented. If not reimplemented, then the default values from this function are taken.
+	 * @author Valerie Isaksen
+	 * @cart: VirtueMartCart the current cart
+	 * @cart_prices: array the new cart prices
+	 * @return null if the method was not selected, false if the payment is not valid any more, true otherwise
+	 *
 	 */
-
 	public function plgVmOnSelectedCalculatePricePayment(VirtueMartCart $cart, array &$cart_prices, &$cart_prices_name) {
 
 		return $this->onSelectedCalculatePrice($cart, $cart_prices, $cart_prices_name);
@@ -883,12 +873,12 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 
 	private function _submitToIPG($method, $dbValues, $cart, $order) {
 		$hash_keys = array(
-			'Password' => $method->ipg_password,
-			'MerID' => $method->ipg_merchant_id,
-			'AcqID' => $method->acquirer_id,
-			'OrderID' => $dbValues['order_number'],
-			'PurchaseAmt' => $this->_getAmountWithPaddedZeros($dbValues['payment_order_total']),
-			'PurchaseCurrency' => $dbValues['payment_currency']
+			'Password'          => $method->ipg_password,
+			'MerID'             => $method->ipg_merchant_id,
+			'AcqID'             => $method->acquirer_id,
+			'OrderID'           => $cart->order_number,
+			'PurchaseAmt'       => $this->_getAmountWithPaddedZeros($dbValues['payment_order_total']),
+			'PurchaseCurrency'  => $dbValues['payment_currency']
 		);
 
 		// Form the signature hash
@@ -896,22 +886,29 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		foreach($hash_keys as $k => $v) {
 			$hash .= $v;
 		}
+		vmdebug('IPG data hash', $hash);
 		// Form the signature
 		$enc = base64_encode(pack('H*', sha1($hash)));
 
 		// Prepare form data to be submited
-		$form_data = $hash_keys;
-		$form_data['Version'] = '1.0.0';
-		$form_data['PurchaseCurrencyExponent'] = '2';
-		$form_data['CaptureFlag'] = 'M';
-		$form_data['SubmitURL'] = self::REDIRECT_URL;
-		$form_data['MerRespURL'] = self::getSuccessUrl($order);
-		$form_data['SignatureMethod'] = 'SHA1';
-		$form_data['Signature'] = $enc;
+		$form_data                              = $hash_keys;
+		$form_data['Version']                   = '1.0.0';
+		$form_data['PurchaseCurrencyExponent']  = '2';
+		$form_data['SubmitURL']                 = self::REDIRECT_URL;
+		$form_data['MerRespURL']                = self::getSuccessUrl($order);
+		$form_data['SignatureMethod']           = 'SHA1';
+		$form_data['Signature']                 = $enc;
+		$form_data['CaptureFlag']               = $method->capture_mode;
 
 		$cart->_confirmDone = FALSE;
 		$cart->_dataValidated = FALSE;
 		$cart->setCartIntoSession();
+
+        vmdebug('IPG submit data', $form_data);
+
+        /*$url = self::getSuccessUrl($order);
+		$mainframe = JFactory::getApplication();
+		$mainframe->redirect($url);*/
 
 		$html = $this->renderByLayout('process_payment', array(
 			'form_data' => $form_data
@@ -970,7 +967,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		return json_decode($data);
 	}
 
-	private static function   getSuccessUrl($order) {
+	private static function getSuccessUrl($order) {
 		$url = JROUTE::_("index.php?option=com_virtuemart&view=pluginresponse&task=pluginresponsereceived&pm=" . $order['details']['BT']->virtuemart_paymentmethod_id . '&on=' . $order['details']['BT']->order_number . "&Itemid=" . vRequest::getInt('Itemid'), false);
 		if (strpos($url, 'index.php')) {
 			$url = 'index.php' . explode('index.php', $url)[1];
@@ -978,7 +975,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		return JURI::base() . $url;
 	}
 
-	private static function   getCancelUrl($order) {
+	private static function getCancelUrl($order) {
 		return JURI::base() . JROUTE::_("index.php?option=com_virtuemart&view=pluginresponse&task=pluginUserPaymentCancel&pm=" . $order['details']['BT']->virtuemart_paymentmethod_id . '&on=' . $order['details']['BT']->order_number . '&Itemid=' . vRequest::getInt('Itemid'), false);
 	}
 

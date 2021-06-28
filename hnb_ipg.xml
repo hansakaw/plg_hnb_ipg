@@ -6,7 +6,7 @@
     <authorUrl>http://hansakaonline.blogspot.com</authorUrl>
     <copyright>Copyright (C) 2016 Hansaka Weerasingha. All rights reserved.</copyright>
     <license>http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL</license>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <description><![CDATA[<a href="https://www.hnb.lk/" target="_blank">HNB</a> is a local internet payment provider and available in Sri Lanka. ]]>
     </description>
 
@@ -65,6 +65,10 @@ description="VMPAYMENT_HNB_IPG_MERCHANT_ID_DESC"/>
 description="VMPAYMENT_HNB_IPG_PASSWORD_DESC"/>
                 <field name="acquirer_id" type="text" label="VMPAYMENT_HNB_IPG_ACQUIRER_ID"
 description="VMPAYMENT_HNB_IPG_ACQUIRER_ID_DESC"/>
+                <field name="capture_mode" type="list" scope="com_virtuemart" default="A" label="VMPAYMENT_HNB_IPG_CAPTURE_MODE" description="VMPAYMENT_HNB_IPG_CAPTURE_MODE_DESC">
+                    <option value="A">VMPAYMENT_HNB_IPG_CAPTURE_AUTOMATIC</option>
+                    <option value="M">VMPAYMENT_HNB_IPG_CAPTURE_MANUAL</option>
+                </field>
             </fieldset>
         </fields>
     </vmconfig>
