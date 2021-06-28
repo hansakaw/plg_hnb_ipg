@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<extension version="2.5" type="plugin" group="vmpayment" method="upgrade">
+    <name>Virtuemart Payment - HNB IPG</name>
+    <creationDate>November 26 2016</creationDate>
+    <author>Hansaka Weerasingha</author>
+    <authorUrl>http://hansakaonline.blogspot.com</authorUrl>
+    <copyright>Copyright (C) 2016 Hansaka Weerasingha. All rights reserved.</copyright>
+    <license>http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL</license>
+    <version>1.0.0</version>
+    <description><![CDATA[<a href="https://www.hnb.lk/" target="_blank">HNB</a> is a local internet payment provider and available in Sri Lanka. ]]>
+    </description>
+
+    <files>
+        <filename plugin="hnb_ipg">hnb_ipg.php</filename>
+        <filename>index.html</filename>
+        <folder>hnb_ipg</folder>
+        <folder>language</folder>
+    </files>
+
+    <vmconfig>
+        <fields name="params">
+            <fieldset name="payment"  addfieldpath="/administrator/components/com_virtuemart/fields">
+			<field type="vmtitle" default="VMPAYMENT_HNB_IPG_PAYMENT_INFO_TITLE" level="level1" />
+                <field name="payment_currency" type="vmacceptedcurrency" default="" label="VMPAYMENT_HNB_IPG_CURRENCY" description="VMPAYMENT_HNB_IPG_CURRENCY_DESC"/>
+                <field name="status_pending" type="vmorderstate" scope="com_virtuemart" default="U"
+label="VMPAYMENT_HNB_IPG_STATUS_PENDING" description="VMPAYMENT_HNB_IPG_STATUS_PENDING_DESC"/>
+                <field name="send_invoice_on_order_null" type="radio" scope="com_virtuemart" default="1"
+label="VMPAYMENT_HNB_IPG_SEND_INVOICE_ON_ORDER_NULL"
+description="VMPAYMENT_HNB_IPG_SEND_INVOICE_ON_ORDER_NULL_DESC">
+                    <option value="0">COM_VIRTUEMART_NO</option>
+                    <option value="1">COM_VIRTUEMART_YES</option>
+                </field>
+            </fieldset>
+            <fieldset name="template">
+			<field type="vmtitle" default="VMPAYMENT_HNB_IPG_TEMPLATE_INFO_TITLE" level="level1" />
+                <field name="payment_logos" type="vmfiles" multiple="true" directory="/images/stories/virtuemart/payment"
+                       hide_none="1" label="VMPAYMENT_HNB_IPG_LOGOS" size="40"
+description="VMPAYMENT_HNB_IPG_LOGOS_DESC"/>
+                <field name="payment_info" type="textarea" cols="35" rows="5" label="VMPAYMENT_HNB_IPG_PAYMENT_INFO"
+description="VMPAYMENT_HNB_IPG_PAYMENT_INFO_DESC"/>
+            </fieldset>
+            <fieldset name="restrictions" >
+			<field type="vmtitle" default="VMPAYMENT_HNB_IPG_RESTRICTIONS_TITLE" level="level1" />
+                <field name="countries" multiple="true" type="vmcountries" scope="com_virtuemart" default=""
+                       label="VMPAYMENT_HNB_IPG_COUNTRIES" description="VMPAYMENT_HNB_IPG_COUNTRIES_DESC"/>
+                <field name="min_amount" type="text" label="VMPAYMENT_HNB_IPG_MIN_AMOUNT"
+description="VMPAYMENT_HNB_IPG_MIN_AMOUNT_DESC"/>
+                <field name="max_amount" type="text" label="VMPAYMENT_HNB_IPG_MAX_AMOUNT"
+description="VMPAYMENT_HNB_IPG_MAX_AMOUNT_DESC"/>
+            </fieldset>
+            <fieldset name="fee">
+			<field type="vmtitle" default="VMPAYMENT_HNB_IPG_FEE_TITLE" level="level1" />
+                <field name="cost_per_transaction" type="text" label="VMPAYMENT_HNB_IPG_COST_PER_TRANSACTION"
+description="VMPAYMENT_HNB_IPG_COST_PER_TRANSACTION_DESC"/>
+                <field name="cost_percent_total" type="text" label="VMPAYMENT_HNB_IPG_COST_PERCENT_TOTAL"
+description="VMPAYMENT_HNB_IPG_COST_PERCENT_TOTAL_DESC"/>
+                <field name="tax_id" type="vmtaxes" scope="com_virtuemart" label="VMPAYMENT_HNB_IPG_TAX"
+description="VMPAYMENT_HNB_IPG_TAX_DESC"/>
+            </fieldset>
+            <fieldset name="ipg">
+			<field type="vmtitle" default="VMPAYMENT_HNB_IPG_ACCOUNT_INFO_TITLE" level="level1" />
+                <field name="ipg_merchant_id" type="text" label="VMPAYMENT_HNB_IPG_MERCHANT_ID"
+description="VMPAYMENT_HNB_IPG_MERCHANT_ID_DESC"/>
+                <field name="ipg_password" type="text" label="VMPAYMENT_HNB_IPG_PASSWORD"
+description="VMPAYMENT_HNB_IPG_PASSWORD_DESC"/>
+                <field name="acquirer_id" type="text" label="VMPAYMENT_HNB_IPG_ACQUIRER_ID"
+description="VMPAYMENT_HNB_IPG_ACQUIRER_ID_DESC"/>
+            </fieldset>
+        </fields>
+    </vmconfig>
+</extension>
