@@ -22,7 +22,7 @@ if (!class_exists('vmPSPlugin')) {
 
 class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 	// Test URL
-	// const REDIRECT_URL = 'https://testsecureacceptance.cybersource.com/pay';
+	//const REDIRECT_URL = 'https://testsecureacceptance.cybersource.com/pay';
 	// Live URL
 	const REDIRECT_URL = 'https://secureacceptance.cybersource.com/pay';
 
@@ -910,7 +910,8 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 			'transaction_uuid'		=> $dbValues['tx_uuid'],
 			'signed_date_time'		=> gmdate("Y-m-d\TH:i:s\Z"),
 			'locale'				=> 'en',
-			'transaction_type'		=> 'authorization',
+			//'transaction_type'		=> 'authorization',
+			'transaction_type'		=> 'sale',
 			'reference_number'		=> $cart->order_number,
 			'amount'				=> self::formatAmount($dbValues['payment_order_total']),
 			'currency'				=> $payment_currency,
