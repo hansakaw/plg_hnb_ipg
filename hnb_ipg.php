@@ -21,7 +21,10 @@ if (!class_exists('vmPSPlugin')) {
 }
 
 class plgVmPaymentHnb_Ipg extends vmPSPlugin {
-	const REDIRECT_URL = 'https://www.hnbpg.hnb.lk/SENTRY/PaymentGateway/Application/ReDirectLink.aspx';
+	// Test URL
+	// const REDIRECT_URL = 'https://testsecureacceptance.cybersource.com/pay';
+	// Live URL
+	const REDIRECT_URL = 'https://secureacceptance.cybersource.com/pay';
 
 	function __construct(& $subject, $config) {
 
@@ -53,20 +56,26 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		$SQLfields = array(
 			'id' => 'int(11) UNSIGNED NOT NULL AUTO_INCREMENT',
 			'virtuemart_order_id' => 'int(1) UNSIGNED',
-			'order_number' => 'char(64)',
+			'order_number' => 'char(64)', //reference_number
 			'virtuemart_paymentmethod_id' => 'mediumint(1) UNSIGNED',
 			'payment_name' => 'varchar(1000)',
-			'payment_order_total' => 'decimal(15,5) NOT NULL',
-			'payment_currency' => 'smallint(1)',
+			'payment_order_total' => 'decimal(15,5) NOT NULL', //auth_amount
+			'payment_currency' => 'smallint(1)', //req_currency
 			'cost_per_transaction' => 'decimal(10,2)',
 			'cost_percent_total' => 'decimal(10,2)',
 			'tax_id' => 'smallint(1)',
 			'hnb_ipg_custom' => 'varchar(255)',
-			'hnb_ipg_response_code' => 'varchar(255)',
-			'hnb_ipg_reason_code' => 'varchar(255)',
-			'hnb_ref' => 'varchar(255)',
-			'hnb_auth_code' => 'varchar(255)',
-			'hnb_tx_stain' => 'varchar(255)'
+			'hnb_ipg_response_code' => 'varchar(10)', //auth_response
+			'hnb_ipg_reason_code' => 'varchar(5)', //reason_code
+			'hnb_ref' => 'varchar(60)', //auth_trans_ref_no
+			'hnb_auth_code' => 'varchar(10)', //auth_code
+			'hnb_auth_amount' => 'decimal(15,5)', //auth_amount
+			'hnb_tx_stain' => 'varchar(256)', //request_token
+			'hnb_tx_id' => 'varchar(30)', //transaction_id
+			'hnb_card_no' => 'varchar(20)', //req_card_number
+			'hnb_card_type' => 'varchar(50)', //card_type_name
+			'tx_uuid' => 'varchar(50)', //req_transaction_uuid
+			'hnb_decision' => 'varchar(10)' //decision
 		);
 		return $SQLfields;
 	}
@@ -99,7 +108,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 			    vmdebug('Conditoins met for method', $method->payment_element);
 				$methodSalesPrice = $this->calculateSalesPrice($cart, $method, $cart->cartPrices);
 				//$method->payment_name = $method->payment_name
-				if (empty($method->ipg_merchant_id) or empty($method->ipg_password) or empty($method->acquirer_id)) {
+				if (empty($method->ipg_profile_id) || empty($method->ipg_access_key) || empty($method->ipg_secret_key)) {
 					vmError(vmText::sprintf('VMPAYMENT_HNB_IPG_CONFIG_ERROR', $method->payment_name, $method->virtuemart_paymentmethod_id));
 					continue;
 				}
@@ -117,7 +126,8 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 					'plugin' => $method,
 					'checked' => $checked,
 					'payment_logo' => $logo,
-					'payment_cost' => $payment_cost				));
+					'payment_cost' => $payment_cost
+				));
 
 				$htmla[] = $html;
 			} else {
@@ -172,9 +182,11 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		}
 
 		$this->getPaymentCurrency($method);
-		$currency_numeric_code = shopFunctions::getCurrencyByID($method->payment_currency, 'currency_numeric_code');
+		// $currency_numeric_code = shopFunctions::getCurrencyByID($method->payment_currency, 'currency_numeric_code');
 		$payment_currency = shopFunctions::getCurrencyByID($method->payment_currency, 'currency_code_3');
 		$email_currency = $this->getEmailCurrency($method);
+		
+		vmdebug('Currency values: $payment_currency, $email_currency', $payment_currency, $email_currency);
 		
 		$totalInPaymentCurrency = vmPSPlugin::getAmountInCurrency($order['details']['BT']->order_total, $method->payment_currency);
 		$cd = CurrencyDisplay::getInstance($cart->pricesCurrency);
@@ -200,10 +212,11 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		$dbValues['virtuemart_paymentmethod_id'] = $cart->virtuemart_paymentmethod_id;
 		$dbValues['cost_per_transaction'] = $method->cost_per_transaction;
 		$dbValues['cost_percent_total'] = $method->cost_percent_total;
-		$dbValues['payment_currency'] = $currency_numeric_code;
+		$dbValues['payment_currency'] = $method->payment_currency;
 		$dbValues['payment_order_total'] = $totalInPaymentCurrency['value'];
 		$dbValues['tax_id'] = $method->tax_id;
 		$dbValues['hnb_ipg_custom'] = $return_context;
+		$dbValues['tx_uuid'] = uniqid();
 		$this->storePSPluginInternalData($dbValues);
 
 		// Send Data to IPG
@@ -215,7 +228,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 			// TODO
 			vmInfo(vmText::sprintf('VMPAYMENT_HNB_IPG_ERROR_FROM', $error ['message'], $error ['field'], $error ['code']));
 			if ($error ['message'] == 401) {
-				vmdebug('check you payment parameters: merchant_id, password, acquirer_id');
+				vmdebug('check you payment parameters: Profile Id, Access Key, Secret Key');
 			}
 		}
 	}
@@ -241,12 +254,17 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		}
 
 		$virtuemart_paymentmethod_id = vRequest::getInt('pm', 0);
-		$order_number = vRequest::getString('on', 0);
-		$response_code = vRequest::getString('ResponseCode', -1);
-		$reason_code = vRequest::getString('ReasonCode', -1);
-		$ref_no = vRequest::getString('ReferenceNo', null);
-		$auth_code = vRequest::getString('AuthCode', null);
-		$tx_stain = vRequest::getString('TransactionStain', null);
+		$order_number = vRequest::getString('req_reference_number', 0);
+		$reason_code = vRequest::getString('reason_code', -1);
+		$response_code = vRequest::getString('auth_response', -1);
+		$ref_no = vRequest::getString('auth_trans_ref_no', null);
+		$auth_code = vRequest::getString('auth_code', null);
+		$auth_amount = vRequest::getString('auth_amount', null);
+		$tx_stain = vRequest::getString('request_token', null);
+		$tx_id = vRequest::getString('transaction_id', null);
+		$card_no = vRequest::getString('req_card_number', null);
+		$card_type = vRequest::getString('card_type_name', null);
+		$decision = vRequest::getString('decision', null);
 
 		if (!($method = $this->getVmPluginMethod($virtuemart_paymentmethod_id))) {
 			return NULL; // Another method was selected, do nothing
@@ -266,17 +284,19 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		// Update order
 		$orderModel = VmModel::getModel('orders');
 		$order = $orderModel->getOrder($virtuemart_order_id);
-		if ($response_code == 1) {
+		$payment_success = $reason_code == 100 || $reason_code == 110;
+		if ($payment_success) {
 			$order['order_status'] = 'U';
 		} else {
-			if ($reason_code == 36) {
-				$order['order_status'] = 'X';
-			}
+			// $order['order_status'] = 'X';
+			$order['order_status'] = $method->status;
 		}
+		$order['comments'] = vmText::_('VMPAYMENT_HNB_IPG_RESPONSE_CODE_' . $decision);
 		$orderModel->updateStatusForOneOrder($virtuemart_order_id, $order, false);
 
 		$paymentCurrency = CurrencyDisplay::getInstance($order['details']['BT']->order_currency);
 		$totalInPaymentCurrency = vmPSPlugin::getAmountInCurrency($order['details']['BT']->order_total, $method->payment_currency);
+		$authAmountInPaymentCurrency = vmPSPlugin::getAmountInCurrency($auth_amount, $method->payment_currency);
 
 		// Update plugin data
 		$dbValues = json_decode(json_encode($paymentTables[0]), true);
@@ -284,7 +304,12 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		$dbValues['hnb_ipg_reason_code'] = $reason_code;
 		$dbValues['hnb_ref'] = $ref_no;
 		$dbValues['hnb_auth_code'] = $auth_code;
+		$dbValues['hnb_auth_amount'] = $auth_amount;
 		$dbValues['hnb_tx_stain'] = $tx_stain;
+		$dbValues['hnb_tx_id'] = $tx_id;
+		$dbValues['hnb_card_no'] = $card_no;
+		$dbValues['hnb_card_type'] = $card_type;
+		$dbValues['hnb_decision'] = $decision;
 
         vmdebug('_getPaymentResponseHtml storePSPluginInternalData', $dbValues);
 		$this->storePSPluginInternalData($dbValues);
@@ -295,15 +320,15 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		$html = $this->renderByLayout('post_payment', array(
 			'order' => $order,
 			'displayTotalInPaymentCurrency' => $totalInPaymentCurrency['display'],
-			'responseCode' => $response_code,
+			'authAmount' => $authAmountInPaymentCurrency['display'],
+			'decision' => $decision,
 			'reasonCode' => $reason_code,
 			'refNo' => $ref_no
 		));
-		vmdebug('_getPaymentResponseHtml', $paymentTables);
 
 		// Remove vmcart
-		if (isset($paymentTables[0]->hnb_ipg_custom) && $response_code == 1) {
-			$this->emptyCart($paymentTables[0]->hnb_ipg_custom, $order_number);
+		if (isset($dbValues->hnb_ipg_custom) && $payment_success) {
+			$this->emptyCart($dbValues->hnb_ipg_custom, $order_number);
 		}
 
 		return $html;
@@ -314,16 +339,19 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 	 */
 	function plgVmOnUserPaymentCancel() {
 
-		$order_number = vRequest::getString('on', '');
+		$order_number = vRequest::getString('req_reference_number', '');
 		// cancel / abort link must be insterted in the HNB IPG
 		// must be http://mysite.com/index.php?option=com_virtuemart&view=pluginresponse&task=pluginUserPaymentCancel&on=-REASON1-
 		$virtuemart_paymentmethod_id = vRequest::getInt('pm', '');
 		if (empty($order_number) or empty($virtuemart_paymentmethod_id) or !$this->selectedThisByMethodId($virtuemart_paymentmethod_id)) {
 			return NULL;
 		}
-		$response_code = vRequest::getString('ResponseCode', -1);
-		$reason_code = vRequest::getString('ReasonCode', -1);
-		if ($response_code == 2 || $response_code == 3) {
+
+		$reason_code = vRequest::getString('reason_code', -1);
+		$response_code = vRequest::getString('auth_response', -1);
+		$decision = vRequest::getString('decision', null);
+
+		if ($decision == 'CANCEL') {
 			$lang = JFactory::getLanguage();
 			$lang_key = 'VMPAYMENT_HNB_IPG_REASON_CODE_' . $reason_code;
 			if ($lang->hasKey($lang_key)) {
@@ -350,7 +378,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 			return NULL;
 		}
 		vmdebug(__CLASS__ . '::' . __FUNCTION__, 'VMPAYMENT_HNB_IPG_PAYMENT_CANCELLED', $error_codes);
-		if ($response_code == 2 || $response_code == 3) {
+		if ($decision == 'CANCEL') {
 			VmInfo(vmText::_('VMPAYMENT_HNB_IPG_PAYMENT_CANCELLED'));
 			$comment = '';
 		} else {
@@ -366,6 +394,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 			vmDebug('Return context', $paymentTable->hnb_ipg_custom, $return_context);
 		}
 		return TRUE;
+
 	}
 
 	/*
@@ -386,14 +415,23 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		 // $paymentmethod_id = vRequest::getString('reason_2');
 		*/
 
-		$order_number = vRequest::getString('OrderID'); // is order number
-		$response_code = vRequest::getString('ResponseCode', -1);
-		$reason_code = vRequest::getString('ReasonCode', -1);
+		$order_number = vRequest::getString('req_reference_number', 0); // is order number
+		$reason_code = vRequest::getString('reason_code', -1);
+		$response_code = vRequest::getString('auth_response', -1);
+		$ref_no = vRequest::getString('auth_trans_ref_no', null);
+		$auth_code = vRequest::getString('auth_code', null);
+		$auth_amount = vRequest::getString('auth_amount', null);
+		$tx_stain = vRequest::getString('request_token', null);
+		$tx_id = vRequest::getString('transaction_id', null);
+		$card_no = vRequest::getString('req_card_number', null);
+		$card_type = vRequest::getString('card_type_name', null);
+		$decision = vRequest::getString('decision', null);
+		
 
 		if (!class_exists('VirtueMartModelOrders')) {
 			require(VMPATH_ADMIN . DS . 'models' . DS . 'orders.php');
 		}
-		if (empty($order_number) || ($response_code == 2 || $response_code == 3)) {
+		if (empty($order_number) || ($decision != 'ACCEPT')) {
 			return FALSE;
 		}
 		if (!($virtuemart_order_id = VirtueMartModelOrders::getOrderIdByOrderNumber($order_number))) {
@@ -407,25 +445,9 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		if (!$this->selectedThisElement($method->payment_element)) {
 			return false;
 		}
-
-		$hash_keys = array(
-			'Password',
-			'MerID',
-			'AcqID',
-			'OrderID',
-			'PurchaseAmt',
-			'PurchaseCurrency'
-		);
-
-		foreach ($hash_keys as $key) {
-			$hash_data[$key] = vRequest::getString($key, '');
-		}
-		$hash_data['Password'] = $method->ipg_password;
-		$hash_data['MerID'] = $method->ipg_merchant_id;
-		$hash_data['AcqID'] = $method->acquirer_id;
-		$hash_data['OrderID'] = $order_number;
-
-		if (!$this->checkHash($hash_data)) {
+		
+		if (strcmp($params["signature"], $this->sign($params)) != 0) {
+			$this->logInfo('HNB IPG plgVmOnPaymentNotification Incorrect signature received:' . $this->sign($params) . ' received value:' . $params["signature"], 'message');
 			return false;
 		}
 
@@ -454,14 +476,30 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		$dbvalues['virtuemart_paymentmethod_id'] = $payments[0]->virtuemart_paymentmethod_id;
 		$dbvalues['virtuemart_order_id'] = $virtuemart_order_id;
 		$dbvalues['order_number'] = $order_number;
+		$dbValues['hnb_ipg_reason_code'] = $reason_code;
+		$dbValues['hnb_ipg_response_code'] = $response_code;
+		$dbValues['hnb_ref'] = $ref_no;
+		$dbValues['hnb_auth_code'] = $auth_code;
+		$dbValues['hnb_auth_amount'] = $auth_amount;
+		$dbValues['hnb_tx_stain'] = $tx_stain;
+		$dbValues['hnb_tx_id'] = $tx_id;
+		$dbValues['hnb_card_no'] = $card_no;
+		$dbValues['hnb_card_type'] = $card_type;
+		$dbValues['hnb_decision'] = $decision;
 
 		$modelOrder = VmModel::getModel('orders');
 		$order = array();
 		$this->logInfo('before getNewOrderStatus   ' . var_export($dbvalues, true), 'message');
 		$status = $this->getNewOrderStatus($dbvalues);
 
-		$order['order_status'] = $method->$status;
-		$order['comments'] = vmText::_('VMPAYMENT_HNB_IPG_RESPONSE_' . $status);
+		$payment_success = $reason_code == 100 || $reason_code == 110;
+		if ($payment_success) {
+			$order['order_status'] = 'U';
+		} else {
+			// $order['order_status'] = 'X';
+			$order['order_status'] = $method->status;
+		}
+		$order['comments'] = vmText::_('VMPAYMENT_HNB_IPG_RESPONSE_CODE_' . $decision);
 		$order['customer_notified'] = 1;
 
 		//$this->logInfo('before storePSPluginInternalData   ' , 'message');
@@ -475,18 +513,6 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		if (isset($payments[0]->hnb_ipg_custom)) {
 			$this->emptyCart($payments[0]->hnb_ipg_custom, $order_number);
 		}
-	}
-
-	private function checkHash($data) {
-		$hash_received = vRequest::getString('hash');
-		$data_implode = implode('|', $data);
-		$hash_calculated = sha1($data_implode);
-
-		if ($hash_calculated != $hash_received) {
-			$this->logInfo('HNB IPG plgVmOnPaymentNotification Incorrect HASH calculated value:' . $hash_calculated . ' received value:' . $hash_received, 'message');
-			$this->logInfo(' data:' . var_export($data, true), 'message');
-		}
-		return true;
 	}
 
 	/*
@@ -538,20 +564,24 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 			// JError::raiseWarning(500, $db->getErrorMsg());
 			return '';
 		}
-
+		
+		vmDebug('Payments: ', $payments);
+		
 		$html = '<table class="adminlist table" >' . "\n";
 		$html .= $this->getHtmlHeaderBE();
 		$code = "hnb_ipg_response_";
 		$first = TRUE;
 		foreach ($payments as $payment) {
+			$payment_currency = shopFunctions::getCurrencyByID($payment->payment_currency, 'currency_code_3');
+			
 			$html .= '<tr class="row1"><td>' . vmText::_('COM_VIRTUEMART_DATE') . '</td><td align="left">' . $payment->created_on . '</td></tr>';
 			// Now only the first entry has this data when creating the order
 			if ($first) {
 				$html .= $this->getHtmlRowBE('COM_VIRTUEMART_PAYMENT_NAME', $payment->payment_name);
-				if ($payment->payment_order_total and $payment->payment_order_total != 0.00) {
-					$html .= $this->getHtmlRowBE('HNB_IPG_PAYMENT_ORDER_TOTAL', $payment->payment_order_total . " " . shopFunctions::getCurrencyByID($payment->payment_currency, 'currency_code_3'));
+				if ($payment->payment_order_total && $payment->payment_order_total != 0.00) {
+					$html .= $this->getHtmlRowBE('HNB_IPG_PAYMENT_ORDER_TOTAL', self::formatAmount($payment->hnb_auth_amount) . " " . $payment_currency);
 				}
-				$html .= $this->getHtmlRowBE('HNB_IPG_PAYMENT_EMAIL_CURRENCY', shopFunctions::getCurrencyByID($payment->payment_currency, 'currency_code_3'));
+				$html .= $this->getHtmlRowBE('HNB_IPG_PAYMENT_EMAIL_CURRENCY', $payment_currency);
 
 				$first = FALSE;
 			} else {
@@ -666,9 +696,7 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 		$amount = $this->getCartAmount($cart_prices);
 		$address = (($cart->ST == 0) ? $cart->BT : $cart->ST);
 
-		$amount_cond = ($amount >= $method->min_amount AND $amount <= $method->max_amount
-			OR
-			($method->min_amount <= $amount AND ($method->max_amount == 0)));
+		$amount_cond = ($amount >= $method->min_amount && $amount <= $method->max_amount || ($method->min_amount <= $amount && ($method->max_amount == 0)));
 
 		$countries = array();
 		if (!empty($method->countries)) {
@@ -872,33 +900,68 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 	}
 
 	private function _submitToIPG($method, $dbValues, $cart, $order) {
-		$hash_keys = array(
-			'Password'          => $method->ipg_password,
-			'MerID'             => $method->ipg_merchant_id,
-			'AcqID'             => $method->acquirer_id,
-			'OrderID'           => $cart->order_number,
-			'PurchaseAmt'       => $this->_getAmountWithPaddedZeros($dbValues['payment_order_total']),
-			'PurchaseCurrency'  => $dbValues['payment_currency']
+		$payment_currency = shopFunctions::getCurrencyByID($method->payment_currency, 'currency_code_3');
+		
+		$form_data = array(
+			'signed_field_names'	=> 'access_key,profile_id,transaction_uuid,signed_field_names,unsigned_field_names,signed_date_time,locale,transaction_type,reference_number,amount,currency,auth_type,bill_to_address_city,bill_to_address_country,bill_to_address_line1,bill_to_address_postal_code,bill_to_address_state,bill_to_email,bill_to_forename,bill_to_surname,override_custom_receipt_page,override_custom_cancel_page',
+			'unsigned_field_names'	=> '',
+			'access_key'			=> $method->ipg_access_key,
+			'profile_id'			=> $method->ipg_profile_id,
+			'transaction_uuid'		=> $dbValues['tx_uuid'],
+			'signed_date_time'		=> gmdate("Y-m-d\TH:i:s\Z"),
+			'locale'				=> 'en',
+			'transaction_type'		=> 'authorization',
+			'reference_number'		=> $cart->order_number,
+			'amount'				=> self::formatAmount($dbValues['payment_order_total']),
+			'currency'				=> $payment_currency,
+			'auth_type'				=> $method->capture_mode
 		);
-
-		// Form the signature hash
-		$hash = '';
-		foreach($hash_keys as $k => $v) {
-			$hash .= $v;
+		
+		// Load billing data from cart
+		$db = JFactory::getDBO();
+		if($cart->ST && $cart->ST['virtuemart_country_id'])
+		{
+			$shipto = $cart->ST;	
+			$sql = "select country_2_code from #__virtuemart_countries where virtuemart_country_id = ".$cart->ST['virtuemart_country_id'];
+			$db->setQuery($sql);
+			$shipto['country'] = $db->loadResult();
 		}
-		vmdebug('IPG data hash', $hash);
+		else
+		if($cart->BT && $cart->STsameAsBT && $cart->BT['virtuemart_country_id'])
+		{
+			$sql = "select country_2_code from #__virtuemart_countries where virtuemart_country_id = ".$cart->BT['virtuemart_country_id'];
+			$db->setQuery($sql);
+			$shipto = $cart->BT;	
+			$shipto['country'] = $db->loadResult();
+		}
+		// merge data from both ST and BT into shipto array
+		if (!$cart->STsameAsBT)
+		{
+			if (empty($shipto['phone_1']))
+				$shipto['phone_1'] = $cart->BT['phone_1'];
+			$shipto['email'] = $cart->BT['email'];
+		}
+		
+		// Update form_data array with billing data
+		$form_data['bill_to_email'] 				= $shipto['email'];
+		$form_data['bill_to_forename'] 				= $shipto['first_name'];
+		$form_data['bill_to_surname'] 				= $shipto['last_name'];
+		$form_data['bill_to_address_line1']			= $shipto['address_1'];
+		$form_data['bill_to_address_city']			= $shipto['city'];
+		$form_data['bill_to_address_state'] 		= $shipto['state'];
+		$form_data['bill_to_address_postal_code'] 	= $shipto['zip'];
+		$form_data['bill_to_address_country']		= $shipto['country'];
+		// Custome receipt and cancel URLs
+		$form_data['override_custom_receipt_page']	= self::getSuccessUrl($order);
+		$form_data['override_custom_cancel_page']	= self::getCancelUrl($order);
+
 		// Form the signature
-		$enc = base64_encode(pack('H*', sha1($hash)));
+		$sign = $this->sign($form_data, $method->ipg_secret_key);
 
 		// Prepare form data to be submited
-		$form_data                              = $hash_keys;
-		$form_data['Version']                   = '1.0.0';
-		$form_data['PurchaseCurrencyExponent']  = '2';
-		$form_data['SubmitURL']                 = self::REDIRECT_URL;
-		$form_data['MerRespURL']                = self::getSuccessUrl($order);
-		$form_data['SignatureMethod']           = 'SHA1';
-		$form_data['Signature']                 = $enc;
-		$form_data['CaptureFlag']               = $method->capture_mode;
+		// $form_data['SubmitURL']                 	= self::REDIRECT_URL;
+		// $form_data['MerNotifyURL']              	= self::getNotificationUrl($cart->order_number);
+		$form_data['signature']                    	= $sign;
 
 		$cart->_confirmDone = FALSE;
 		$cart->_dataValidated = FALSE;
@@ -906,18 +969,39 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 
         vmdebug('IPG submit data', $form_data);
 
-        /*$url = self::getSuccessUrl($order);
-		$mainframe = JFactory::getApplication();
-		$mainframe->redirect($url);*/
-
 		$html = $this->renderByLayout('process_payment', array(
-			'form_data' => $form_data
+			'form_data' => $form_data,
+			'submit_url' => self::REDIRECT_URL
 		));
 		vRequest::setVar('html', $html);
 	}
 
-	private function _getAmountWithPaddedZeros($amount) {
+	private static function _getAmountWithPaddedZeros($amount) {
 		return str_pad(number_format($amount, 2, '', ''), 12, '0', STR_PAD_LEFT);
+	}
+	
+	private static function formatAmount($amount) {
+		return number_format($amount, 2);
+	}
+
+	private function sign($params, $secretKey) {
+	  return self::signData(self::buildDataToSign($params), $secretKey);
+	}
+
+	private static function signData($data, $secretKey) {
+		return base64_encode(hash_hmac('sha256', $data, $secretKey, true));
+	}
+
+	private static function buildDataToSign($params) {
+		$signedFieldNames = explode(",", $params["signed_field_names"]);
+		foreach ($signedFieldNames as $field) {
+		   $dataToSign[] = $field . "=" . $params[$field];
+		}
+		return self::commaSeparate($dataToSign);
+	}
+
+	private static function commaSeparate($dataToSign) {
+		return implode(",", $dataToSign);
 	}
 
 	private function _validate_hnb_ipg_data($payment_params, $paymentmethod_id, &$error_msg) {
@@ -968,19 +1052,20 @@ class plgVmPaymentHnb_Ipg extends vmPSPlugin {
 	}
 
 	private static function getSuccessUrl($order) {
-		$url = JROUTE::_("index.php?option=com_virtuemart&view=pluginresponse&task=pluginresponsereceived&pm=" . $order['details']['BT']->virtuemart_paymentmethod_id . '&on=' . $order['details']['BT']->order_number . "&Itemid=" . vRequest::getInt('Itemid'), false);
+		$url = JROUTE::_("index.php?option=com_virtuemart&view=pluginresponse&task=pluginresponsereceived&pm=" . $order['details']['BT']->virtuemart_paymentmethod_id . "&Itemid=" . vRequest::getInt('Itemid'), false, true);
 		if (strpos($url, 'index.php')) {
 			$url = 'index.php' . explode('index.php', $url)[1];
 		}
-		return JURI::base() . $url;
+		// return JURI::base() . $url;
+		return $url;
 	}
 
 	private static function getCancelUrl($order) {
-		return JURI::base() . JROUTE::_("index.php?option=com_virtuemart&view=pluginresponse&task=pluginUserPaymentCancel&pm=" . $order['details']['BT']->virtuemart_paymentmethod_id . '&on=' . $order['details']['BT']->order_number . '&Itemid=' . vRequest::getInt('Itemid'), false);
+		return JROUTE::_("index.php?option=com_virtuemart&view=pluginresponse&task=pluginUserPaymentCancel&pm=" . $order['details']['BT']->virtuemart_paymentmethod_id . '&Itemid=' . vRequest::getInt('Itemid'), false, true);
 	}
 
-	private static function   getNotificationUrl($order_number) {
-		return JURI::base() . JROUTE::_("index.php?option=com_virtuemart&view=pluginresponse&tmpl=component&task=pluginnotification&on=" . $order_number, false);
+	private static function getNotificationUrl($order_number) {
+		return JROUTE::_("index.php?option=com_virtuemart&view=pluginresponse&tmpl=component&task=pluginnotification&on=" . $order_number, false, true);
 	}
 
 }

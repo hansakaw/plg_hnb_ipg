@@ -23,7 +23,7 @@ defined ('_JEXEC') or die();
 </div>
 <div class="tx-status" style="width: 100%">
     <span class="tx-status-title"><?php echo vmText::_ ('VMPAYMENT_HNB_IPG_RESPONSE_STATUS'); ?> : </span>
-    <?php echo vmText::_('VMPAYMENT_HNB_IPG_RESPONSE_CODE_' . $viewData['paymentInfos']->hnb_ipg_response_code); ?>
+    <?php echo vmText::_('VMPAYMENT_HNB_IPG_RESPONSE_CODE_' . $viewData['paymentInfos']->hnb_decision); ?>
 </div>
 <?php if ($viewData['paymentInfos']->hnb_ref) { ?>
 <div class="tx-ref" style="width: 100%">

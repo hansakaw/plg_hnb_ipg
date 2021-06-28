@@ -19,13 +19,13 @@ defined ('_JEXEC') or die();
 
 ?>
 <div class="post_payment_order_number" style="width: 100%">
-	<span class=post_payment_order_number_title"><?php echo vmText::_ ('COM_VIRTUEMART_ORDER_NUMBER'); ?> : </span>
+	<span class="post_payment_order_number_title"><?php echo vmText::_ ('COM_VIRTUEMART_ORDER_NUMBER'); ?> : </span>
 	<?php echo  $viewData['order']['details']['BT']->order_number; ?>
 </div>
-<?php if ($viewData['responseCode']) { ?>
+<?php if ($viewData['decision']) { ?>
 <div class="post_payment_transaction" style="width: 100%">
 	<span class="post_payment_transaction_response_code"><?php echo vmText::_ ('VMPAYMENT_HNB_IPG_RESPONSE_STATUS'); ?> : </span>
-	<?php echo vmText::_('VMPAYMENT_HNB_IPG_RESPONSE_CODE_' . $viewData['responseCode']); ?>
+	<?php echo vmText::_('VMPAYMENT_HNB_IPG_RESPONSE_CODE_' . $viewData['decision']); ?>
 </div>
 
 <div class="post_payment_transaction" style="width: 100%">
@@ -42,13 +42,15 @@ defined ('_JEXEC') or die();
 <?php } ?>
 
 <div class="post_payment_order_total" style="width: 100%">
-	<span class="post_payment_order_total_title"><?php echo vmText::_ ('COM_VIRTUEMART_ORDER_PRINT_TOTAL'); ?> </span>
-	<?php echo  $viewData['displayTotalInPaymentCurrency']; ?>
+	<span class="post_payment_order_total_title"><?php echo vmText::_ ('COM_VIRTUEMART_ORDER_PRINT_TOTAL'); ?> : </span>
+	<?php echo $viewData['displayTotalInPaymentCurrency']; ?>
 </div>
+
+<div class="post_payment_auth_amount" style="width: 100%">
+	<span class="post_payment_auth_amount_title"><?php echo vmText::_ ('VMPAYMENT_HNB_IPG_AUTH_AMOUNT'); ?> : </span>
+	<?php echo $viewData['authAmount']; ?>
+</div>
+</br>
+<strong>
 <a class="vm-button-correct" href="<?php echo JRoute::_('index.php?option=com_virtuemart&view=orders&layout=details&order_number='.$viewData["order"]['details']['BT']->order_number.'&order_pass='.$viewData["order"]['details']['BT']->order_pass, false)?>"><?php echo vmText::_('COM_VIRTUEMART_ORDER_VIEW_ORDER'); ?></a>
-
-
-
-
-
-
+</strong>

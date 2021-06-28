@@ -18,25 +18,34 @@ defined ('_JEXEC') or die();
  */
 
 ?>
-<form id="vmPaymentForm" method="post" action="<?php echo $viewData['form_data']['SubmitURL']; ?>">
-<div align="center">
-<input id='Version' type='hidden' name='Version' value="<?php echo $viewData['form_data']['Version']; ?>">
-<input id='MerID' type='hidden' value="<?php echo $viewData['form_data']['MerID']; ?>" name='MerID' >
-<input id='AcqID' type='hidden' value="<?php echo $viewData['form_data']['AcqID']; ?>" name='AcqID' >
-<input id='MerRespURL' type='hidden' value="<?php echo $viewData['form_data']['MerRespURL']; ?>" name='MerRespURL'>
-<input id='PurchaseCurrency' type='hidden' value="<?php echo $viewData['form_data']['PurchaseCurrency']; ?>" name='PurchaseCurrency'>
-<input id='PurchaseCurrencyExponent' type='hidden' value="<?php echo $viewData['form_data']['PurchaseCurrencyExponent']; ?>" name='PurchaseCurrencyExponent'>
-<input id='OrderID' type='hidden' value="<?php echo $viewData['form_data']['OrderID']; ?>" name='OrderID' >
-<input id='SignatureMethod' type='hidden' value="<?php echo $viewData['form_data']['SignatureMethod']; ?>" name='SignatureMethod'>
-<input id='Signature' type='hidden' value="<?php echo $viewData['form_data']['Signature']; ?>" name='Signature'>
-<input id='CaptureFlag' type='hidden' value="<?php echo $viewData['form_data']['CaptureFlag']; ?>" name='CaptureFlag' >
-<input id='PurchaseAmt' type='hidden' value="<?php echo $viewData['form_data']['PurchaseAmt']; ?>" name='PurchaseAmt' >
-
-<noscript>
-	<h3 align="center"> Please click on the Submit button to continue processing.<br>
-	<input type="submit" value="Submit">
-</noscript>
-</div>
+<form id="vmPaymentForm" method="post" action="<?php echo $viewData['submit_url']; ?>">
+	<div align="left">
+		<fieldset id="confirmation">
+			<legend>Review Payment Details</legend>
+			<div>
+				<?php
+					foreach($viewData['form_data'] as $name => $value) {
+						if ($name != 'signed_field_names' && $name != 'access_key' && $name != 'signature' && $name != 'profile_id' && $name != 'override_custom_receipt_page' && $name != 'override_custom_cancel_page') {
+							echo "<div>";
+							echo "<span class=\"fieldName\">" . $name . "</span><span class=\"fieldValue\">" . $value . "</span>";
+							echo "</div>\n";
+						}
+					}
+				?>
+			</div>
+		</fieldset>
+		<?php
+			foreach($viewData['form_data'] as $name => $value) {
+				if ($name != 'SubmitURL' && $name != 'MerRespURL' && $name != 'MerCancelURL' && $name != 'MerNotifyURL') {
+					echo "<input type=\"hidden\" id=\"" . $name . "\" name=\"" . $name . "\" value=\"" . $value . "\"/>\n";
+				}
+			}
+		?>
+		<noscript>
+			<h3 align="left">Please click on the Confirm button to continue processing.<br>
+			<input type="submit" value="Confirm">
+		</noscript>
+	</div>
 </form>
 
 <script type="text/javascript">
